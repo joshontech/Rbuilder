@@ -41,79 +41,80 @@ source_boilerplate() {
   echo ""
 }
 
-# Uses the function cleanup to be passed when canceling this script.
-trap cleanup SIGINT
-# Saves the terminal state before this applications main functions are executed.
-tput smcup
-clear
-
-# Allows the user to enter a source directory and re-input it if incorrect.
-while true; do
-  source_boilerplate
-  read -e -p "Enter the source directory: " source
-  if [[ -d "${source}" ]]; then
-    clear
-    echo "Input: ${source}"
-    read -e -p "Does this input look correct? (yes/no): " entered_source
-    if [[ "${entered_source}" == "yes" ]]; then
+#######################################
+# Gets the source directory for your 
+# rsync command.
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+source_input() {
+  while true; do
+    source_boilerplate
+    read -e -p "Enter the source directory: " source
+    if [[ -d "${source}" ]]; then
       clear
-      break
+      echo "Input: ${source}"
+      read -e -p "Does this input look correct? (yes/no): " entered_source
+      if [[ "${entered_source}" == "yes" ]]; then
+        clear
+        break
+      else
+        echo "Please enter the source again"
+        sleep 1
+        clear
+      fi            
     else
-      echo "Please enter the source again"
+      echo "The source does not exist please enter again."
       sleep 1
       clear
-    fi            
-  else
-    echo "The source does not exist please enter again."
-    sleep 1
-    clear
-  fi
-done
+    fi
+  done
+}
 
-# Allows the user to enter a destination directory and re-input it if incorrect.
-while true; do
-  read -e -p "Enter the destination directory: " destination
-  clear
-  if [[ -d "${destination}" ]]; then
+#######################################
+# Gets the destination directory for your 
+# rsync command.
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+destination_input(){
+  while true; do
+    read -e -p "Enter the destination directory: " destination
     clear
-    echo "Input: ${destination}"
-    read -e -p "Does this input look correct? (yes/no): " entered_destination
-    if [[ "${entered_destination}" == "yes" ]]; then
+    if [[ -d "${destination}" ]]; then
       clear
-      break
+      echo "Input: ${destination}"
+      read -e -p "Does this input look correct? (yes/no): " entered_destination
+      if [[ "${entered_destination}" == "yes" ]]; then
+        clear
+        break
+      else
+        echo "Please enter the destination again"
+        sleep 1
+        clear
+      fi            
     else
-      echo "Please enter the destination again"
+      echo "The destination does not exist please enter again."
       sleep 1
       clear
-    fi            
-  else
-    echo "The destination does not exist please enter again."
-    sleep 1
-    clear
-  fi
-done
+    fi
+  done
+}
 
-read -e -p "Do you want to add any options to the rsync command? (yes/no): " add_options
-clear
-
-while true; do
-  options=""
-  if [[ "${add_options}" == "yes" ]]; then
-    echo "Available rsync options:"
-    echo "1.  --delete:   Files not present in the source directory are deleted from the destination directory."
-    echo "2.  --update:   skip files that are newer on the destination than on the source"
-    echo "3.  --compress: Compress file data during the transfer"
-    echo "4.  --exclude:  Exclude files matching a given PATTERN"
-    echo "5.  --include:  Include files matching a given PATTERN"
-    echo "6.  --dry-run:  Perform a trial run with no changes made"
-    echo "7.  --bwlimit:  Limit I/O bandwidth; KBytes per second"
-    echo "8.  --checksum: Skip based on checksum, not mod-time & size"
-    echo "9.  --partial:  Keep partially transferred files"     
-
-echo ""
-read -e -p "Enter the option numbers you want to add (separated by spaces): " -a selected_options
-
-    for option in "${selected_options[@]}"; do
+#######################################
+# Rsync option selector allows you to 
+# select what rsync options you want.
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+option_selection(){
+  for option in "${selected_options[@]}"; do
       case "${option}" in
         1) options+=" --delete" 
            ;;
@@ -140,15 +141,50 @@ read -e -p "Enter the option numbers you want to add (separated by spaces): " -a
            ;;
       esac
     done 
+}
+
+# Uses the function cleanup to be passed when canceling this script.
+trap cleanup SIGINT
+# Saves the terminal state before this applications main functions are executed.
+tput smcup
+clear
+
+# Allows the user to enter a source directory and re-input it if incorrect.
+source_input
+
+# Allows the user to enter a destination directory and re-input it if incorrect.
+destination_input
+
+read -e -p "Do you want to add any options to the rsync command? (yes/no): " add_options
+clear
+
+while true; do
+  options=""
+  if [[ "${add_options}" == "yes" ]]; then
+    echo "Available rsync options:"
+    echo "1.  --delete:   Files not present in the source directory are deleted from the destination directory."
+    echo "2.  --update:   skip files that are newer on the destination than on the source"
+    echo "3.  --compress: Compress file data during the transfer"
+    echo "4.  --exclude:  Exclude files matching a given PATTERN"
+    echo "5.  --include:  Include files matching a given PATTERN"
+    echo "6.  --dry-run:  Perform a trial run with no changes made"
+    echo "7.  --bwlimit:  Limit I/O bandwidth; KBytes per second"
+    echo "8.  --checksum: Skip based on checksum, not mod-time & size"
+    echo "9.  --partial:  Keep partially transferred files"     
+
+    echo ""
+    read -e -p "Enter the option numbers you want to add (separated by spaces): " -a selected_options
+
+    option_selection
   fi
-    clear
+  clear
 
-command="rsync -avh --info=progress2${options} \"${source}\" \"${destination}\""
-clear
+  command="rsync -avh --info=progress2${options} \"${source}\" \"${destination}\""
+  clear
 
-echo "The rsync command to be executed is: ${command}"
-read -e -p "Do you want to run this command? (yes/no): " run_command
-clear
+  echo "The rsync command to be executed is: ${command}"
+  read -e -p "Do you want to run this command? (yes/no): " run_command
+  clear
 
   if [[ "${run_command}" == "yes" ]]; then
     eval "${command}"
