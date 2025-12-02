@@ -96,6 +96,88 @@ check_install_dependencies() {
 }
 
 #######################################
+# Offers to schedule the rsync command
+# using cron or systemd timers, with
+# user choice of time.
+# Globals:
+#   command (the rsync command string)
+# Arguments:
+#   None
+#######################################
+schedule_rsync() {
+  echo "Do you want to schedule this rsync command to run automatically? (yes/y or no/n)"
+  read -p "Choice: " choice
+
+  case "$choice" in
+    yes|y|Y|Yes|YES)
+      echo "Choose scheduling method:"
+      echo "1. cron"
+      echo "2. systemd timer"
+      read -p "Enter 1 or 2: " method
+
+      case "$method" in
+        1)
+          echo "Enter the cron schedule (examples below):"
+          echo "  • '0 2 * * *' → daily at 2 AM"
+          echo "  • '*/30 * * * *' → every 30 minutes"
+          echo "  • '0 0 * * 0' → every Sunday at midnight"
+          read -p "Cron expression: " cron_time
+          (crontab -l 2>/dev/null; echo "$cron_time $command") | crontab -
+          echo "Cron job added successfully."
+          ;;
+        2)
+          echo "Choose a systemd timer frequency:"
+          echo "  • daily"
+          echo "  • weekly"
+          echo "  • hourly"
+          echo "Or enter a custom OnCalendar expression (e.g., 'Mon *-*-* 02:00:00')."
+          read -p "Timer schedule: " interval
+          
+          service_file="$HOME/.config/systemd/user/rsync-job.service"
+          timer_file="$HOME/.config/systemd/user/rsync-job.timer"
+          mkdir -p "$HOME/.config/systemd/user"
+
+          cat > "$service_file" <<EOF
+[Unit]
+Description=Rsync Scheduled Job
+
+[Service]
+Type=oneshot
+ExecStart=$command
+EOF
+
+          cat > "$timer_file" <<EOF
+[Unit]
+Description=Run Rsync Job on schedule
+
+[Timer]
+OnCalendar=$interval
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+          systemctl --user daemon-reload
+          systemctl --user enable --now rsync-job.timer
+          echo "Systemd timer created and enabled successfully."
+          ;;
+        *)
+          echo "Invalid choice. Aborting scheduling."
+          ;;
+      esac
+      ;;
+    no|n|N|No|NO)
+      echo "Skipping scheduling."
+      ;;
+    *)
+      echo "Invalid choice. Please answer yes/y or no/n."
+      ;;
+  esac
+}
+
+
+#######################################
 # Starts a new tmux session and renames
 # it to temp_name. this is needed to
 # allow this script to be a single file.
@@ -309,6 +391,8 @@ clear
 echo "The rsync command to be executed is: ${command}"
 read -e -p "Do you want to run this command? (yes/no): " run_command
 clear
+
+schedule_rsync
 
   if [[ "${run_command}" == "yes" ]]; then
     eval "${command}"
