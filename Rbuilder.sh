@@ -44,6 +44,58 @@ source_boilerplate() {
 }
 
 #######################################
+# Checks if tmux and rsync are installed,
+# asks before installing if missing.
+# Accepts yes/y and no/n answers.
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+check_install_dependencies() {
+  for pkg in tmux rsync; do
+    if command -v $pkg >/dev/null 2>&1; then
+      echo "$pkg is already installed."
+    else
+      echo "$pkg is not installed."
+
+      read -p "Do you want to install $pkg now? (yes/y or no/n): " choice
+      case "$choice" in
+        yes|y|Y|Yes|YES)
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y $pkg
+          elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y $pkg
+          elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y $pkg
+          elif command -v brew >/dev/null 2>&1; then
+            brew install $pkg
+          else
+            echo "No supported package manager found. Please install $pkg manually."
+            exit 1
+          fi
+
+          if command -v $pkg >/dev/null 2>&1; then
+            echo "$pkg installation successful."
+          else
+            echo "$pkg installation failed. Please install manually."
+            exit 1
+          fi
+          ;;
+        no|n|N|No|NO)
+          echo "$pkg will not be installed. Exiting..."
+          exit 1
+          ;;
+        *)
+          echo "Invalid choice. Please answer yes/y or no/n."
+          exit 1
+          ;;
+      esac
+    fi
+  done
+}
+
+#######################################
 # Starts a new tmux session and renames
 # it to temp_name. this is needed to
 # allow this script to be a single file.
@@ -119,6 +171,9 @@ start_tmux(){
 
   fi
 }
+
+# Checks if dependencies are installed.
+check_install_dependencies
 
 # Starts a new tmux session and renames it.
 start_tmux
